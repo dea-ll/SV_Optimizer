@@ -1,0 +1,56 @@
+wildcard_constraints:
+    sample   = "[^/]+",
+    tool     = "[a-zA-Z0-9_.-]+",
+    svtype = "[a-z0-9_.-]+",
+    date     = "[0-9-]+",
+
+import glob
+import os
+
+def get_bed(wc):
+    svtype = config["svtype_by_tool"][wc.tool]
+    return f"{wc.tool}/{wc.sample}.genome.{svtype}.aggregated.{parameters.date}.bed"
+
+
+rule annotsv:
+    input:
+        agg_done = "all_aggregation.done"
+    output:
+        done = "done_files/{sample}.{tool}.annotation.{date}.done"
+    params:
+        workdir             = lambda wc: f"{config['working_folder']}/{wc.tool}",
+        AnnotSV_sif         = parameters.AnnotSV_sif,
+        annotsv_annotations = parameters.annotsv_annotations,
+        bed                 = get_bed
+    resources:
+        nb_cores = 4,
+        mem_mb   = 4000
+    shell:
+        """
+        mkdir -p {wildcards.tool}/{wildcards.sample}.AnnotSV.{wildcards.tool}
+
+        singularity exec \
+          -B {params.workdir}:{params.workdir} \
+          -B {params.annotsv_annotations}:/usr/local/share/AnnotSV/Annotations_Human \
+          {params.AnnotSV_sif} \
+          AnnotSV \
+            -SVinputFile {params.bed} \
+            -svtBEDcol 4 \
+            -genomeBuild GRCh37 \
+            -annotationMode both \
+            -outputFile {wildcards.tool}/{wildcards.sample}.AnnotSV.{wildcards.tool}/{wildcards.sample}.{wildcards.tool}.anno3.3.4.both.{wildcards.date}.tsv \
+            -outputDir {wildcards.tool}/{wildcards.sample}.AnnotSV.{wildcards.tool} \
+          >> {wildcards.tool}/{wildcards.sample}.AnnotSV.{wildcards.tool}/LOG-AnnotSV.3.3.4.{wildcards.sample}.{wildcards.tool}.{wildcards.date}
+
+        touch {output.done}
+        """
+
+rule all_annotations:
+    input:
+        expand("done_files/{sample}.{tool}.annotation.{date}.done", 
+            sample   = config["samples"],
+            tool=config["tools"],
+            date= parameters.date,
+            )
+    output:
+        touch("all_annotation.done")

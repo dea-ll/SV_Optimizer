@@ -1,0 +1,37 @@
+"""
+Generic VCF filtering rules for all tools
+Applies size/type filters to each tool VCF per sample.
+"""
+
+import parameters_Truvari as parameters
+
+TOOLS = list(config["tools"].keys())
+SAMPLES = [s["name"] for s in config["samples"]]
+SAMPLE_TO_VCF_KEY = {s["name"]: s["vcf_key"] for s in config["samples"]}
+FILTERED_DIR = config["paths"]["filtered_vcf_dir"]
+
+
+rule filter_tool_DUP_all:
+    input:
+        vcf = lambda wc: config["tools"][wc.tool][SAMPLE_TO_VCF_KEY[wc.sample]] + ".vcf.gz"
+    output:
+        vcf = "{FILTERED_DIR}/{tool}/{sample}.DUP_all.vcf.gz"
+    params:
+        conda_init = parameters.conda_init,
+        conda_env = parameters.conda_env,
+        bcftools_bin = parameters.bcftools_bin
+    shell:
+        """
+        {params.conda_init}
+        conda activate {params.conda_env}
+        export PATH={params.bcftools_bin}:$PATH
+        mkdir -p $(dirname {output.vcf})
+        bcftools view -i 'SVTYPE="INS" && REPTYPE="DUP" && abs(SVLEN) > 50' -Oz -o {output.vcf} {input.vcf}
+        tabix -f -p vcf {output.vcf}
+        """
+
+rule all_filters:
+    input:
+        expand("{d}/{t}/{s}.DUP_all.vcf.gz", d=FILTERED_DIR, t=TOOLS, s=SAMPLES),
+    output:
+        touch("all_filters.done")

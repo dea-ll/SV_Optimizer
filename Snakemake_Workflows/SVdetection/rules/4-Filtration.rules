@@ -1,0 +1,55 @@
+wildcard_constraints:
+    sample   = "[^/]+",
+    tool     = "[a-zA-Z0-9_.-]+",
+    run_date = "[0-9-]+",
+
+rule sv_filter:
+    """
+    Run SV filtering (sv_filter/runner.py) on AnnotSV TSVs for each sample/tool.
+    """
+    input:
+        annot_done = "all_annotation.done"
+    output:
+        done = "done_files/{sample}.{tool}.filtration.done"
+    params:
+        conda_init = parameters.conda_init,
+        conda_env  = parameters.conda_env,
+        panels_file       = parameters.panels_file,
+        sv_filtering_root = parameters.sv_filtering_root,
+    resources:
+        nb_cores = 2,
+        mem_mb   = 2000   
+    shell:
+        """
+        tsv=$(ls {wildcards.tool}/{wildcards.sample}.AnnotSV.{wildcards.tool}/{wildcards.sample}.{wildcards.tool}.anno3.3.4.both.*.tsv | head -n 1)
+
+        if [ -z "$tsv" ]; then
+          echo "No AnnotSV TSV found for sample {wildcards.sample}, tool {wildcards.tool}" >&2
+          exit 1
+        fi
+
+        panels=$(awk -v s="{wildcards.sample}" '$1 == s {{print $2}}' {params.panels_file})
+
+        list_panels=$(echo "$panels" | tr ',' '\n' | grep '^Panel' | tr '\n' ' ' || true)
+        list_genes=$(echo "$panels" | tr ',' '\n' | grep -v '^Panel' | tr '\n' ' ' || true)
+
+        source {params.conda_init}
+        conda activate {params.conda_env}
+
+        python3 {params.sv_filtering_root}/sv_filter/runner.py \
+          -i "$tsv" \
+          -p $list_panels \
+          -g $list_genes
+
+        touch {output.done}
+        """
+
+rule all_filtration:
+    input:
+        expand(
+            "done_files/{sample}.{tool}.filtration.done",
+            sample   = config["samples"],
+            tool     = config["tools"],
+        )
+    output:
+        touch("all_filtration.done")

@@ -1,0 +1,6 @@
+samples:
+  # Example samples (replace with your IDs)
+  SAMPLE_01_genome:
+    id: SAMPLE_01
+  SAMPLE_02_genome:
+    id: SAMPLE_02

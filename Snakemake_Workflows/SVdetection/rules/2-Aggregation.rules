@@ -1,0 +1,50 @@
+wildcard_constraints:
+    sample = "[^/]+",
+    tool   = "[a-z]+-[a-z0-9-]+",
+    svtype = "[a-z0-9_.-]+",
+    date   = "[0-9-]+"
+
+rule aggregation:
+    """
+    Run the global Create_SVF_database.pl script and produce one BED per sample.
+    """
+    input:
+        parameter_file = lambda wc: config["parameters_files"][wc.tool],
+        done           = "done_files/{tool}.dataformater.done",
+        json           = "done_files/{tool}.DataFormated.json"
+    output:
+        done = "done_files/{tool}.aggregated.done"
+    params:
+        script          = config["create_svf_database_script"],
+        workdir         = lambda wc: f"{config['working_folder']}/{wc.tool}",
+        conda_init      = parameters.conda_init,
+        aggregation_env = parameters.aggregation_env,
+    resources:
+        nb_cores = 4,
+        mem_mb   = 8000
+    shell:
+        """
+        mkdir -p done_files {wildcards.tool}
+        cd {params.workdir}
+
+        source {params.conda_init}
+        conda activate {params.aggregation_env}
+        unset PERL5LIB PERL_LOCAL_LIB_ROOT PERL_MB_OPT PERL_MM_OPT
+
+        perl {params.script} \
+          --parameter_file {input.parameter_file} \
+          --data_json_file ../{input.json}
+
+        cd ..
+
+        touch {output.done}
+        """
+
+rule all_aggregation:
+    input:
+        expand(
+            "done_files/{tool}.aggregated.done",
+            tool   = config["tools"],
+        )
+    output:
+        touch("all_aggregation.done")

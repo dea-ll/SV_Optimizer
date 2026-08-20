@@ -1,0 +1,241 @@
+"""
+Truvari Benchmarking Rules
+
+Phase 1A: Benchmark against RAW truthsets
+Phase 1B: Benchmark against FILTERED truthsets
+Phase 2A: Comparison reports within each phase
+Phase 2B: Cross-phase comparison (RAW vs FILTERED)
+"""
+
+import parameters_Truvari as parameters
+
+################################################################################
+# PHASE 1A: Benchmark against RAW truthsets
+################################################################################
+
+rule truvari_bench_raw:
+    """Benchmark tool against RAW (unfiltered) truthset"""
+    input:
+        truth_vcf = lambda wc: config["truthsets"]["RAW"]["vcf"],
+        truth_tbi = lambda wc: config["truthsets"]["RAW"]["vcf"] + ".tbi",
+        truth_bed = lambda wc: config["truthsets"]["RAW"]["bed"],
+        calls_vcf = lambda wc: (
+            config["tools"][wc.tool][SAMPLE_TO_VCF_KEY["HG002"]] + ".vcf.gz"
+        ),
+        calls_tbi = lambda wc: (
+            config["tools"][wc.tool][SAMPLE_TO_VCF_KEY["HG002"]] + ".vcf.gz.tbi"
+        )
+    output:
+        summary = f"{parameters.results_dir_raw}/{{tool}}/config_{{truvari_config}}/summary.json"
+    params:
+        reference = parameters.reference_genome,
+        refdist = lambda wc: config["tools"][wc.tool]["refdist"],
+        chunksize = lambda wc: config["tools"][wc.tool]["chunksize"],
+        pctseq = lambda wc: config["truvari_configs"][wc.truvari_config]["pctseq"],
+        pctsize = lambda wc: config["truvari_configs"][wc.truvari_config]["pctsize"],
+        pctovl = lambda wc: config["truvari_configs"][wc.truvari_config]["pctovl"],
+        conda_init = parameters.conda_init,
+        conda_env = parameters.conda_env,
+        outdir = lambda wc: f"{parameters.results_dir_raw}/{wc.tool}/config_{wc.truvari_config}"
+    resources:
+        mem_mb = 8000,
+        cpus = 4
+    shell:
+        """
+        {params.conda_init}; \
+        conda activate {params.conda_env}; \
+        mkdir -p $(dirname {params.outdir}); \
+        rm -rf {params.outdir}; \
+        truvari bench -b {input.truth_vcf} -c {input.calls_vcf} -f {params.reference} \
+            -o {params.outdir} --dup-to-ins --passonly --includebed {input.truth_bed} \
+            --chunksize {params.chunksize} --refdist {params.refdist} --pctseq {params.pctseq} --pctsize {params.pctsize} \
+            --pctovl {params.pctovl} -p 0
+        """
+
+
+################################################################################
+# PHASE 1B: Benchmark against FILTERED truthsets
+################################################################################
+
+rule truvari_bench_filtered:
+    """Benchmark tool against FILTERED (Illumina-only, ILLMP_ALT>5) truthset"""
+    input:
+        truth_vcf = lambda wc: config["truthsets"]["FILTERED"]["vcf"],
+        truth_tbi = lambda wc: config["truthsets"]["FILTERED"]["vcf"] + ".tbi",
+        truth_bed = lambda wc: config["truthsets"]["FILTERED"]["bed"],
+        calls_vcf = lambda wc: (
+            config["tools"][wc.tool][SAMPLE_TO_VCF_KEY["HG002"]] + ".vcf.gz"
+        ),
+        calls_tbi = lambda wc: (
+            config["tools"][wc.tool][SAMPLE_TO_VCF_KEY["HG002"]] + ".vcf.gz.tbi"
+        )
+    output:
+        summary = f"{parameters.results_dir_filtered}/{{tool}}/config_{{truvari_config}}/summary.json"
+    params:
+        reference = parameters.reference_genome,
+        refdist = lambda wc: config["tools"][wc.tool]["refdist"],
+        chunksize = lambda wc: config["tools"][wc.tool]["chunksize"],
+        pctseq = lambda wc: config["truvari_configs"][wc.truvari_config]["pctseq"],
+        pctsize = lambda wc: config["truvari_configs"][wc.truvari_config]["pctsize"],
+        pctovl = lambda wc: config["truvari_configs"][wc.truvari_config]["pctovl"],
+        conda_init = parameters.conda_init,
+        conda_env = parameters.conda_env,
+        outdir = lambda wc: f"{parameters.results_dir_filtered}/{wc.tool}/config_{wc.truvari_config}"
+    resources:
+        mem_mb = 8000,
+        cpus = 4
+    shell:
+        """
+        {params.conda_init}; \
+        conda activate {params.conda_env}; \
+        mkdir -p $(dirname {params.outdir}); \
+        rm -rf {params.outdir}; \
+        truvari bench -b {input.truth_vcf} -c {input.calls_vcf} -f {params.reference} \
+            -o {params.outdir} --dup-to-ins --passonly --includebed {input.truth_bed} \
+            --chunksize {params.chunksize} --refdist {params.refdist} --pctseq {params.pctseq} --pctsize {params.pctsize} \
+            --pctovl {params.pctovl} -p 0
+        """
+
+
+################################################################################
+# PHASE 2A: Comparison reports within RAW phase
+################################################################################
+
+rule create_comparison_report_raw:
+    """Create comparison report across configs for RAW phase"""
+    input:
+        summaries = lambda wc: expand(
+            f"{parameters.results_dir_raw}/{wc.tool}/config_{{cfg}}/summary.json",
+            cfg=TRUVARI_CONFIGS
+        )
+    output:
+        report = f"{parameters.results_dir_raw}/{{tool}}_COMPARISON.txt"
+    shell:
+        """
+        {{
+            echo "# Truvari RAW Benchmarking Comparison"
+            echo "Tool: {wildcards.tool}"
+            echo "Sample: HG002"
+            echo
+            for f in {input.summaries}; do
+                cfg=$(basename $(dirname $f))
+                echo "## Config: $cfg"
+                cat "$f"
+                echo
+            done
+        }} > {output.report}
+        """
+
+################################################################################
+# PHASE 2B: Comparison reports within FILTERED phase
+################################################################################
+
+rule create_comparison_report_filtered:
+    """Create comparison report across configs for FILTERED phase"""
+    input:
+        summaries = lambda wc: expand(
+            f"{parameters.results_dir_filtered}/{wc.tool}/config_{{cfg}}/summary.json",
+            cfg=TRUVARI_CONFIGS
+        )
+    output:
+        report = f"{parameters.results_dir_filtered}/{{tool}}_COMPARISON.txt"
+    shell:
+        """
+        {{
+            echo "# Truvari FILTERED Benchmarking Comparison"
+            echo "Tool: {wildcards.tool}"
+            echo "Sample: HG002"
+            echo
+            for f in {input.summaries}; do
+                cfg=$(basename $(dirname $f))
+                echo "## Config: $cfg"
+                cat "$f"
+                echo
+            done
+        }} > {output.report}
+        """
+
+################################################################################
+# PHASE 2C: Cross-phase comparison (RAW vs FILTERED)
+################################################################################
+
+rule compare_raw_vs_filtered:
+    """Compare RAW vs FILTERED for same tool/sample"""
+    input:
+        raw_summaries = lambda wc: expand(
+            f"{parameters.results_dir_raw}/{wc.tool}/config_{{cfg}}/summary.json",
+            cfg=TRUVARI_CONFIGS
+        ),
+        filtered_summaries = lambda wc: expand(
+            f"{parameters.results_dir_filtered}/{wc.tool}/config_{{cfg}}/summary.json",
+            cfg=TRUVARI_CONFIGS
+        )
+    output:
+        report = f"{parameters.results_base}/COMPARISON_RAW_vs_FILTERED/{{tool}}_{{sample}}.txt"
+    shell:
+        """
+        mkdir -p $(dirname {output.report})
+        {{
+            echo "# RAW vs FILTERED Comparison"
+            echo "Tool: {wildcards.tool}"
+            echo "Sample: HG002"
+            echo
+            echo "## Summary"
+            echo "- **RAW**: Unfiltered Illumina variants"
+            echo "- **FILTERED**: Illumina-only variants (ILLMP_ALT > 5)"
+            echo
+            
+            for raw_file in {input.raw_summaries}; do
+                cfg=$(basename $(dirname $raw_file) | sed 's/^config_//')
+                filtered_file="{parameters.results_dir_filtered}/{wildcards.tool}/config_$cfg/summary.json"
+                
+                echo "## Config: $cfg"
+                echo
+                echo "### RAW Results"
+                cat "$raw_file" | head -30
+                echo
+                echo "### FILTERED Results"
+                cat "$filtered_file" | head -30
+                echo
+                echo "---"
+                echo
+            done
+        }} > {output.report}
+        """
+
+################################################################################
+# Master rule
+################################################################################
+
+rule all_truvari:
+    """Execute all Truvari benchmarking phases"""
+    input:
+        # Phase 1A: RAW benchmarks
+        expand(
+            f"{parameters.results_dir_raw}/{{tool}}/config_{{cfg}}/summary.json",
+            tool=TOOLS,
+            cfg=TRUVARI_CONFIGS
+        ),
+        # Phase 1B: FILTERED benchmarks
+        expand(
+            f"{parameters.results_dir_filtered}/{{tool}}/config_{{cfg}}/summary.json",
+            tool=TOOLS,
+            cfg=TRUVARI_CONFIGS
+        ),
+        # Phase 2A: RAW comparison reports
+        expand(
+            f"{parameters.results_dir_raw}/{{tool}}_COMPARISON.txt",
+            tool=TOOLS
+        ),
+        # Phase 2B: FILTERED comparison reports
+        expand(
+            f"{parameters.results_dir_filtered}/{{tool}}_COMPARISON.txt",
+            tool=TOOLS
+        ),
+        # Phase 2C: RAW vs FILTERED cross-phase comparisons
+        expand(
+            f"{parameters.results_base}/COMPARISON_RAW_vs_FILTERED/{{tool}}_HG002.txt",
+            tool=TOOLS
+        )
+    output:
+        touch("all_truvari.done")

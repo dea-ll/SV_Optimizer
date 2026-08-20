@@ -1,0 +1,217 @@
+rule samtools_index:
+    input:
+        bam = "{sample}.genome.bam"
+    output:
+        bai = "{sample}.genome.bam.bai"
+    params:
+        samtools_bin = parameters.samtools_bin,
+    resources:
+        nb_cores = 1,
+        mem_mb = 2000,  
+    shell:
+        """
+        export PATH={params.samtools_bin}:$PATH;
+        samtools index {input.bam}
+        """ 
+
+rule delly_call:
+    input:
+        bam = "{sample}.genome.bam",
+        bai = "{sample}.genome.bam.bai"
+    output:
+        bcf = "Delly/{sample}.delly.raw.{date}.bcf",
+        bcf_csi = "Delly/{sample}.delly.raw.{date}.bcf.csi"
+    resources:
+        nb_cores = 4,
+        mem_mb  = 8000,
+    params:
+        delly_bin = parameters.Delly_bin,
+        exclude = parameters.exclude_template,
+        reference = parameters.reference_genome,
+        delly_min_quality = parameters.delly_min_quality,
+        htslib_path = parameters.htslib_path,
+    shell:
+        """
+        set +u
+        mkdir -p Delly
+        export PATH={params.delly_bin}:$PATH
+        export LD_LIBRARY_PATH={params.htslib_path}:$LD_LIBRARY_PATH
+        delly call \
+            -o {output.bcf} \
+            -x {params.exclude} \
+            -q {params.delly_min_quality} \
+            -g {params.reference} \
+            {input.bam}
+        """
+
+rule raw_bcf_to_vcf:
+    input:
+        bcf = "Delly/{sample}.delly.raw.{date}.bcf",
+        bcf_csi = "Delly/{sample}.delly.raw.{date}.bcf.csi"
+    output:
+        vcf = "Delly/Unfiltered_vcf_files/{sample}.genome.delly.{date}.vcf"
+    params:
+        bcftools_bin = parameters.bcftools_bin
+    resources:
+        nb_cores = 1,
+        mem_mb  = 4000,
+    shell:
+        """
+        mkdir -p Delly/Unfiltered_vcf_files/
+        export PATH={params.bcftools_bin}:$PATH;
+        bcftools view -Ov -o {output.vcf} {input.bcf}
+        """
+
+rule delly_filter_del_max10kb:
+    input:
+        vcf = "Delly/Unfiltered_vcf_files/{sample}.genome.delly.{date}.vcf"
+    output:
+        vcf = "Delly/Filtered_vcf_files/del-max10kb/{sample}.genome.delly.del-max10kb.filtered.{date}.vcf"
+    params:
+        bcftools_bin = parameters.bcftools_bin
+    resources:
+        nb_cores = 1,
+        mem_mb   = 1000,
+    shell:
+        """
+        mkdir -p Delly/Filtered_vcf_files/del-max10kb/
+        export PATH={params.bcftools_bin}:$PATH
+        bcftools view \
+          -i 'FILTER=="PASS" && MAPQ>30 && PE>5 && INFO/SVTYPE=="DEL" && INFO/END-POS+1>=50 && INFO/END-POS+1<=10000' \
+          {input.vcf} \
+          | awk '
+            /^##contig=<ID=/ {{
+              if ($0 ~ /^##contig=<ID=([0-9]+|X|Y),/) print
+              next
+            }}
+            /^#/ {{ print; next }}
+            $1 ~ /^([0-9]+|X|Y)$/ {{ print }}
+          ' \
+          > {output.vcf}
+        """
+
+
+rule delly_filter_del_gt10kb:
+    input:
+        vcf = "Delly/Unfiltered_vcf_files/{sample}.genome.delly.{date}.vcf"
+    output:
+        vcf = "Delly/Filtered_vcf_files/del-gt10kb/{sample}.genome.delly.del-gt10kb.filtered.{date}.vcf"
+    params:
+        bcftools_bin = parameters.bcftools_bin
+    resources:
+        nb_cores = 1,
+        mem_mb   = 1000,
+    shell:
+        """
+        mkdir -p Delly/Filtered_vcf_files/del-gt10kb/
+        export PATH={params.bcftools_bin}:$PATH
+        bcftools view \
+          -i 'FILTER=="PASS" && MAPQ>30 && PE>5 && INFO/SVTYPE=="DEL" && INFO/END-POS+1>10000' \
+          {input.vcf} \
+          | awk '
+            /^##contig=<ID=/ {{
+              if ($0 ~ /^##contig=<ID=([0-9]+|X|Y),/) print
+              next
+            }}
+            /^#/ {{ print; next }}
+            $1 ~ /^([0-9]+|X|Y)$/ {{ print }}
+          ' \
+          > {output.vcf}
+        """
+
+
+rule delly_filter_dup:
+    input:
+        vcf = "Delly/Unfiltered_vcf_files/{sample}.genome.delly.{date}.vcf"
+    output:
+        vcf = "Delly/Filtered_vcf_files/dup/{sample}.genome.delly.dup.filtered.{date}.vcf"
+    params:
+        bcftools_bin = parameters.bcftools_bin
+    resources:
+        nb_cores = 1,
+        mem_mb   = 1000,
+    shell:
+        """
+        mkdir -p Delly/Filtered_vcf_files/dup/
+        export PATH={params.bcftools_bin}:$PATH
+        bcftools view \
+          -i 'FILTER=="PASS" && MAPQ>30 && PE>5 && INFO/SVTYPE=="DUP" && INFO/END-POS+1>=50' \
+          {input.vcf} \
+          | awk '
+            /^##contig=<ID=/ {{
+              if ($0 ~ /^##contig=<ID=([0-9]+|X|Y),/) print
+              next
+            }}
+            /^#/ {{ print; next }}
+            $1 ~ /^([0-9]+|X|Y)$/ {{ print }}
+          ' \
+          > {output.vcf}
+        """
+
+
+rule delly_filter_inv:
+    input:
+        vcf = "Delly/Unfiltered_vcf_files/{sample}.genome.delly.{date}.vcf"
+    output:
+        vcf = "Delly/Filtered_vcf_files/inv/{sample}.genome.delly.inv.filtered.{date}.vcf"
+    params:
+        bcftools_bin = parameters.bcftools_bin,
+    resources:
+        nb_cores = 1,
+        mem_mb   = 1000,
+    shell:
+        """
+        mkdir -p Delly/Filtered_vcf_files/inv/
+        export PATH={params.bcftools_bin}:$PATH
+        bcftools view \
+          -i 'FILTER=="PASS" && MAPQ>30 && PE>5 && INFO/SVTYPE=="INV"' \
+          {input.vcf} \
+          | awk '
+            /^##contig=<ID=/ {{
+              if ($0 ~ /^##contig=<ID=([0-9]+|X|Y),/) print
+              next
+            }}
+            /^#/ {{ print; next }}
+            $1 ~ /^([0-9]+|X|Y)$/ {{ print }}
+          ' \
+          > {output.vcf}
+        """
+
+rule vcf_to_bed:
+    input:
+        vcf = "Delly/Filtered_vcf_files/{SVtype}/{sample}.genome.delly.{SVtype}.filtered.{date}.vcf"
+    output:
+        bed = "Delly/Bed_files/{SVtype}/{sample}.genome.delly.{SVtype}.filtered.{date}.bed"
+    params:
+        bedops_bin = parameters.bedops_bin
+    resources:
+        nb_cores = 1,
+        mem_mb   = 1000,
+    shell:
+        """
+        mkdir -p Delly/Bed_files/{wildcards.SVtype}
+        export PATH={params.bedops_bin}:$PATH
+        convert2bed --input=vcf < {input.vcf} > {output.bed}
+        """
+
+rule all_delly:
+    input:
+        expand(
+            "Delly/Unfiltered_vcf_files/{sample}.genome.delly.{date}.vcf",
+            sample=config["samples"],
+            date=[parameters.date],
+        ),
+        expand(
+            "Delly/Filtered_vcf_files/{SVtype}/{sample}.genome.delly.{SVtype}.filtered.{date}.vcf",
+            sample=config["samples"],
+            SVtype=["del-max10kb", "del-gt10kb", "dup", "inv"],
+            date=[parameters.date],
+        ),
+        expand(
+            "Delly/Bed_files/{SVtype}/{sample}.genome.delly.{SVtype}.filtered.{date}.bed",
+            sample=config["samples"],
+            SVtype=["del-max10kb", "del-gt10kb", "dup", "inv"],
+            date=[parameters.date],
+        )
+    output:
+        touch("all_delly.done")

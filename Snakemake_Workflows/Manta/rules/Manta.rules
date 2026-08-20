@@ -1,0 +1,154 @@
+rule manta_config:
+    input:
+        bam = "{sample}.genome.bam",
+        bai = "{sample}.genome.bam.bai"
+    output:
+        flag = temp("{sample}.manta_config_dir.flag") 
+    params:
+        reference_genome = parameters.reference_genome,
+        reference_bed = parameters.reference_bed,
+        manta_bin = parameters.manta_bin,
+        run_dir = "Manta/RunDir_{sample}.genome/",
+    resources:
+        nb_cores = 2,
+        mem_mb   = 1000,
+    shell:
+        """
+        mkdir -p {params.run_dir}
+        export PATH={params.manta_bin}:$PATH;
+        configManta.py \
+            --bam {input.bam} \
+            --referenceFasta {params.reference_genome} \
+            --runDir {params.run_dir} \
+            --generateEvidenceBam --outputContig \
+            --callRegions {params.reference_bed};
+        touch {output.flag}
+        """ 
+
+rule manta_run:
+    input:
+        flag = "{sample}.manta_config_dir.flag" 
+    output:
+        vcf_gz = temp("Manta/RunDir_{sample}.genome/results/variants/diploidSV.vcf.gz")
+    resources:
+        nb_cores = 10,
+        mem_mb   = 8000,   
+    params:
+        run_dir = "Manta/RunDir_{sample}.genome/",
+    shell:
+        """
+        cd {params.run_dir} && \
+        ./runWorkflow.py -m local -j {resources.nb_cores}
+        """ 
+
+rule unzip_vcf:
+    input:
+        vcf_gz = "Manta/RunDir_{sample}.genome/results/variants/diploidSV.vcf.gz"
+    output:
+        vcf = temp("Manta/{sample}.genome.manta.diploidSV.{date}.vcf")
+    resources:
+        nb_cores = 1,
+        mem_mb   = 4000,
+    shell:
+        """
+        gunzip -c {input.vcf_gz} > {output.vcf}
+        """ 
+
+rule convert_inversion:
+    input:
+        vcf = "Manta/{sample}.genome.manta.diploidSV.{date}.vcf"
+    output:
+        vcf_inv = "Manta/{sample}.genome.manta.diploidSVinv.{date}.vcf"
+    params:
+        convert_inversion = parameters.manta_bin + "../libexec/convertInversion.py",
+        samtools_bin = parameters.samtools_bin,
+        samtools_file = parameters.samtools_bin + "samtools",
+        reference_genome = parameters.reference_genome,
+    resources:
+        nb_cores = 1,
+        mem_mb   = 4000,
+    shell:
+        """
+        chmod +x {params.convert_inversion}
+        export PATH={params.samtools_bin}:$PATH;
+        {params.convert_inversion} {params.samtools_file} {params.reference_genome} {input.vcf} > {output.vcf_inv}
+        """ 
+
+rule copy_unfiltered_vcf:
+    input:
+        vcf_inv = "Manta/{sample}.genome.manta.diploidSVinv.{date}.vcf"
+    output:
+        vcf_inv_file = "Manta/Unfiltered_vcf_files/{sample}.genome.manta.diploidSVinv.{date}.vcf"
+    resources:
+        nb_cores = 1,
+        mem_mb   = 4000,
+    shell:
+        """
+        mkdir -p Manta/Unfiltered_vcf_files/
+        cp {input.vcf_inv} {output.vcf_inv_file}
+        """
+
+rule manta_filter_del_max10kb:
+    input:
+        vcf_inv = "Manta/{sample}.genome.manta.diploidSVinv.{date}.vcf"
+    output:
+        filtered_vcf = "Manta/Filtered_vcf_files/del-max10kb/{sample}.genome.manta.del-max10kb.filtered.{date}.vcf"
+    params:
+        bcftools_bin = parameters.bcftools_bin
+    resources:
+        nb_cores = 1,
+        mem_mb   = 4000,
+    shell:
+        """
+        mkdir -p Manta/Filtered_vcf_files/del-max10kb/
+        export PATH={params.bcftools_bin}:$PATH
+        bcftools view \
+          -i 'FILTER=="PASS" && FORMAT/GQ>0 && INFO/SVTYPE=="DEL" && INFO/SVLEN>-10000 && INFO/SVLEN<=-50' \
+          {input.vcf_inv} \
+          | awk '
+            /^##contig=<ID=/ {{
+              if ($0 ~ /^##contig=<ID=([0-9]+|X|Y),/) print
+              next
+            }}
+            /^#/ {{ print; next }}
+            $1 ~ /^([0-9]+|X|Y)$/ {{ print }}
+          ' \
+          > {output.filtered_vcf}
+        """
+
+rule manta_vcf_to_bed:
+    input:
+        filtered_vcf = "Manta/Filtered_vcf_files/del-max10kb/{sample}.genome.manta.del-max10kb.filtered.{date}.vcf"
+    output:
+        bed = "Manta/Bed_files/del-max10kb/{sample}.genome.manta.del-max10kb.filtered.{date}.bed"
+    params:
+        bedops_bin = parameters.bedops_bin
+    resources:
+        nb_cores = 1,
+        mem_mb   = 4000,
+    shell:
+        """
+        mkdir -p Manta/Bed_files/del-max10kb/
+        export PATH={params.bedops_bin}:$PATH
+        convert2bed --input=vcf --deletions < {input.filtered_vcf} > {output.bed}
+        """
+
+rule all_manta:
+    input:
+        expand(
+            "Manta/Bed_files/del-max10kb/{sample}.genome.manta.del-max10kb.filtered.{date}.bed",
+            sample = list(config["samples"].keys()),
+            date   = "20260527"
+        ),
+        expand(
+            "Manta/Unfiltered_vcf_files/{sample}.genome.manta.diploidSVinv.{date}.vcf",
+            sample = list(config["samples"].keys()),
+            date   = "20260527"
+        ),
+        expand(
+            "Manta/Filtered_vcf_files/del-max10kb/{sample}.genome.manta.del-max10kb.filtered.{date}.vcf",
+            sample = list(config["samples"].keys()),
+            date   = "20260527"
+        )
+    output:
+        touch("all_manta.done")

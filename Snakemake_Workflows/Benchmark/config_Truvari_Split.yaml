@@ -1,0 +1,153 @@
+tools:
+  SvABA:
+    type: "Assembly+SR"
+    refdist: 300
+    chunksize: 1000 
+    vcf_hg002: "/path/to/benchmark_vcfs/svaba_res/Unfiltered_vcf_Files/GIAB_HG_002.svaba.sv.reclassified.with.SV"
+    vcf_hg002_DEL_50to10kb: "/path/to/filtered_vcf_files/SvABA/HG002.DEL_50to10kb.vcf.gz"
+    vcf_hg002_DEL_gt10kb: "/path/to/filtered_vcf_files/SvABA/HG002.DEL_gt10kb.vcf.gz"
+    vcf_hg002_DUP_all: "/path/to/filtered_vcf_files/SvABA/HG002.DUP_all.vcf.gz"
+    vcf_hg002_DUP_lt1kb: "/path/to/filtered_vcf_files/SvABA/HG002.DUP_lt1kb.vcf.gz"
+
+  Manta:
+    type: "PE+SR"
+    refdist: 300
+    chunksize: 1000  
+    vcf_hg002: "/path/to/benchmark_vcfs/Manta/Unfiltered_vcf_files/GIAB_HG_002.genome.manta.diploidSVinv.20251202"
+    vcf_hg002_DEL_50to10kb: "/path/to/filtered_vcf_files/Manta/HG002.DEL_50to10kb.vcf.gz"
+    vcf_hg002_DEL_gt10kb: "/path/to/filtered_vcf_files/Manta/HG002.DEL_gt10kb.vcf.gz"
+    vcf_hg002_DUP_all: "/path/to/filtered_vcf_files/Manta/HG002.DUP_all.vcf.gz"
+    vcf_hg002_DUP_lt1kb: "/path/to/filtered_vcf_files/Manta/HG002.DUP_lt1kb.vcf.gz"
+
+  Delly:
+    type: "PE+SR"
+    refdist: 300
+    chunksize: 1000  
+    vcf_hg002: "/path/to/benchmark_vcfs/Delly/Unfiltered_vcf_files/GIAB_HG_002.delly.raw.20251117"
+    vcf_hg002_DEL_50to10kb: "/path/to/filtered_vcf_files/Delly/HG002.DEL_50to10kb.vcf.gz"
+    vcf_hg002_DEL_gt10kb: "/path/to/filtered_vcf_files/Delly/HG002.DEL_gt10kb.vcf.gz"
+    vcf_hg002_DUP_all: "/path/to/filtered_vcf_files/Delly/HG002.DUP_all.vcf.gz"
+    vcf_hg002_DUP_lt1kb: "/path/to/filtered_vcf_files/Delly/HG002.DUP_lt1kb.vcf.gz"
+
+  Dysgu:
+    type: "PE+SR+RD+Assembly"
+    refdist: 300
+    chunksize: 1000
+    vcf_hg002: "/path/to/benchmark_vcfs/Dysgu/Unfiltered_vcf_files/GIAB_HG_002.genome.20251203"
+    vcf_hg002_DEL_50to10kb: "/path/to/filtered_vcf_files/Dysgu/HG002.DEL_50to10kb.vcf.gz"
+    vcf_hg002_DEL_gt10kb: "/path/to/filtered_vcf_files/Dysgu/HG002.DEL_gt10kb.vcf.gz"
+    vcf_hg002_DUP_all: "/path/to/filtered_vcf_files/Dysgu/HG002.DUP_all.vcf.gz"
+    vcf_hg002_DUP_lt1kb: "/path/to/filtered_vcf_files/Dysgu/HG002.DUP_lt1kb.vcf.gz"
+
+  Smoove:
+    type: "PE+SR"
+    refdist: 300
+    chunksize: 1000
+    vcf_hg002: "/path/to/benchmark_vcfs/Smoove/Unfiltered_vcf_Files/GIAB_HG_002-smoove.genotyped"
+    vcf_hg002_DEL_50to10kb: "/path/to/filtered_vcf_files/Smoove/HG002.DEL_50to10kb.vcf.gz"
+    vcf_hg002_DEL_gt10kb: "/path/to/filtered_vcf_files/Smoove/HG002.DEL_gt10kb.vcf.gz"
+    vcf_hg002_DUP_all: "/path/to/filtered_vcf_files/Smoove/HG002.DUP_all.vcf.gz"
+    vcf_hg002_DUP_lt1kb: "/path/to/filtered_vcf_files/Smoove/HG002.DUP_lt1kb.vcf.gz"
+
+  GRIDSS:
+    type: "PE+SR"
+    refdist: 300
+    chunksize: 1000
+    vcf_hg002: "/path/to/benchmark_vcfs/GRIDSS/Unfiltered_vcf_Files/GIAB_HG_002.genome.gridss.simpleSVTYPE"
+    vcf_hg002_DEL_50to10kb: "/path/to/filtered_vcf_files/GRIDSS/HG002.DEL_50to10kb.vcf.gz"
+    vcf_hg002_DEL_gt10kb: "/path/to/filtered_vcf_files/GRIDSS/HG002.DEL_gt10kb.vcf.gz"
+    vcf_hg002_DUP_all: "/path/to/filtered_vcf_files/GRIDSS/HG002.DUP_all.vcf.gz"
+    vcf_hg002_DUP_lt1kb: "/path/to/filtered_vcf_files/GRIDSS/HG002.DUP_lt1kb.vcf.gz"
+
+  whamg:
+    type: "PE+SR"
+    refdist: 300
+    chunksize: 1000
+    vcf_hg002: "/path/to/benchmark_vcfs/whamg/Unfiltered_vcf_files/GIAB_HG_002.whamg.hg19"
+    vcf_hg002_DEL_50to10kb: "/path/to/filtered_vcf_files/whamg/HG002.DEL_50to10kb.vcf.gz"
+    vcf_hg002_DEL_gt10kb: "/path/to/filtered_vcf_files/whamg/HG002.DEL_gt10kb.vcf.gz"
+    vcf_hg002_DUP_all: "/path/to/filtered_vcf_files/whamg/HG002.DUP_all.vcf.gz"
+    vcf_hg002_DUP_lt1kb: "/path/to/filtered_vcf_files/whamg/HG002.DUP_lt1kb.vcf.gz"
+
+################################################################################
+# Path to filtered vcf files according to the SVTYPE and SVLEN
+################################################################################
+
+paths:
+  filtered_vcf_dir: "/path/to/filtered_vcf_files"
+
+################################################################################
+# Truvari Parameter Testing Configurations
+################################################################################
+
+truvari_configs:
+  truvari_default:
+    pctseq: 0.7
+    pctsize: 0.7
+    pctovl: 0.0
+
+  overlap_50:
+    pctseq: 0.0
+    pctsize: 0.0
+    pctovl: 0.5
+
+  overlap_70:
+    pctseq: 0.0
+    pctsize: 0.0
+    pctovl: 0.7
+
+  rd_depth:
+    pctseq: 0.0      # ignorer la séquence
+    pctsize: 0.5     # tailles assez proches, mais tolérant (×2)
+    pctovl: 0.5      # au moins 50 % de recouvrement
+    sizemin: 50
+    sizefilt: 30
+    sizemax: 10000000   # 10 Mb, largement au-dessus de la plupart des CNV
+
+
+# Select which configurations to run
+active_configs:
+  - truvari_default
+  - overlap_50
+  - overlap_70
+  - rd_depth
+
+################################################################################
+# Samples to benchmark
+# Define your sample names and their corresponding VCF key in tools
+################################################################################
+
+samples:
+  - name: "HG002"
+    vcf_key: "vcf_hg002"
+
+################################################################################
+# Truthset Configurations (Generic)
+# 
+# Modify only the vcf and bed paths below for your specific truthsets
+# RAW: unfiltered Illumina variants
+# FILTERED: Illumina-only variants (ILLMP_ALT > 5)
+################################################################################
+
+truthsets:
+  RAW:
+    vcf: "/path/to/truthset/Raw/HG002_SVs_Tier1_v0.6.vcf.gz"
+    bed: "/path/to/truthset/Raw/HG002_SVs_Tier1_v0.6.bed"
+    
+  FILTERED:
+    vcf: "/path/to/truthset/Filtered/HG002_SVs_Tier1_ILLMP_ALT_gt5.v0.6.vcf.gz"
+    bed: "/path/to/truthset/Raw/HG002_SVs_Tier1_v0.6.bed"
+
+  FILTERED_RD:
+    vcf: "/path/to/truthset/RD_truth/HG002_SVs_Tier1_RD_recall_relaxed.vcf.gz"
+    bed: "/path/to/truthset/Raw/HG002_SVs_Tier1_v0.6.bed"
+
+truthsets_split:
+  DEL_50to10kb:
+    vcf: "/path/to/truthset/Split/Ill_Splited/HG002.DEL_50to10kb.vcf.gz"
+  DEL_gt10kb:
+    vcf: "/path/to/truthset/Split/Ill_Splited/HG002.DEL_gt10kb.vcf.gz"
+  DUP_all:
+    vcf: "/path/to/truthset/Split/Ill_Splited/HG002.DUP_all.vcf.gz"
+  DUP_lt1kb:
+    vcf: "/path/to/truthset/Split/Ill_Splited/HG002.DUP_lt1kb.vcf.gz"

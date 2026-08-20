@@ -1,0 +1,193 @@
+wildcard_constraints:
+    sample="[^/]+",
+    svtype = "[a-zA-Z0-9_-]+",
+    date="[0-9]+"
+
+rule dysgu_run:
+    input:
+        bam = "{sample}.genome.bam",
+        bai = "{sample}.genome.bam.bai"
+    output:
+        vcf = "Dysgu/dysgu_res/{sample}.genome.vcf"
+    params:
+        ref = parameters.reference_genome,
+        cores = parameters.cores,
+        memory = parameters.memory_dysgu,
+        conda_init = parameters.conda_init,
+        conda_env = parameters.conda_env,
+        outdir = "Dysgu/dysgu_res"
+    resources:
+        nb_cores = 10,
+        mem_mb   = 8000,
+    shell:
+        """
+        mkdir -p {params.outdir}
+        
+        {params.conda_init}
+        conda activate {params.conda_env}
+        
+        dysgu run -p {params.cores} -x \
+            {params.ref} \
+            {params.outdir}/{wildcards.sample}.genome_tmp \
+            {input.bam} \
+            > {output.vcf}
+        """
+
+rule Unfiltered_vcf_files:
+    input:
+        vcf = "Dysgu/dysgu_res/{sample}.genome.vcf"
+    output:
+        vcf_moved = "Dysgu/Unfiltered_vcf_files/{sample}.genome.dysgu.{date}.vcf"
+    resources:
+        nb_cores = 1,
+        mem_mb   = 4000,
+    shell:
+        """
+        mkdir -p Dysgu/Unfiltered_vcf_files/
+        cp {input.vcf} {output.vcf_moved}
+        """
+
+rule dysgu_filter_del_max10kb:
+    input:
+        vcf = "Dysgu/Unfiltered_vcf_files/{sample}.genome.dysgu.{date}.vcf"
+    output:
+        vcf = "Dysgu/Filtered_vcf_files/del-max10kb/{sample}.genome.dysgu.del-max10kb.filtered.{date}.vcf"
+    params:
+        conda_init   = parameters.conda_init,
+        conda_env    = parameters.conda_env,
+        bcftools_bin = parameters.bcftools_bin
+    resources:
+        nb_cores = 1,
+        mem_mb   = 4000,
+    shell:
+        """
+        mkdir -p Dysgu/Filtered_vcf_files/del-max10kb/
+        {params.conda_init}
+        conda activate {params.conda_env}
+        export PATH={params.bcftools_bin}:$PATH
+        bcftools view \
+          -i 'FILTER=="PASS" && INFO/SVTYPE=="DEL" && abs(INFO/SVLEN)>=50 && abs(INFO/SVLEN)<=10000' \
+          {input.vcf} \
+          | awk '
+            /^##contig=<ID=/ {{
+              if ($0 ~ /^##contig=<ID=([0-9]+|X|Y),/) print
+              next
+            }}
+            /^#/ {{ print; next }}
+            $1 ~ /^([0-9]+|X|Y)$/ {{ print }}
+          ' \
+          > {output.vcf}
+        """
+
+rule dysgu_filter_del_gt10kb:
+    input:
+        vcf = "Dysgu/Unfiltered_vcf_files/{sample}.genome.dysgu.{date}.vcf"
+    output:
+        vcf = "Dysgu/Filtered_vcf_files/del-gt10kb/{sample}.genome.dysgu.del-gt10kb.filtered.{date}.vcf"
+    params:
+        conda_init   = parameters.conda_init,
+        conda_env    = parameters.conda_env,
+        bcftools_bin = parameters.bcftools_bin
+    resources:
+        nb_cores = 1,
+        mem_mb   = 4000,
+    shell:
+        """
+        mkdir -p Dysgu/Filtered_vcf_files/del-gt10kb/
+        {params.conda_init}
+        conda activate {params.conda_env}
+        export PATH={params.bcftools_bin}:$PATH
+        bcftools view \
+          -i 'FILTER=="PASS" && INFO/SVTYPE=="DEL" && abs(INFO/SVLEN)>10000' \
+          {input.vcf} \
+          | awk '
+            /^##contig=<ID=/ {{
+              if ($0 ~ /^##contig=<ID=([0-9]+|X|Y),/) print
+              next
+            }}
+            /^#/ {{ print; next }}
+            $1 ~ /^([0-9]+|X|Y)$/ {{ print }}
+          ' \
+          > {output.vcf}
+        """
+
+
+rule dysgu_filter_dup:
+    input:
+        vcf = "Dysgu/Unfiltered_vcf_files/{sample}.genome.dysgu.{date}.vcf"
+    output:
+        vcf = "Dysgu/Filtered_vcf_files/dup/{sample}.genome.dysgu.dup.filtered.{date}.vcf"
+    params:
+        conda_init   = parameters.conda_init,
+        conda_env    = parameters.conda_env,
+        bcftools_bin = parameters.bcftools_bin
+    resources:
+        nb_cores = 1,
+        mem_mb   = 4000,
+    shell:
+        """
+        mkdir -p Dysgu/Filtered_vcf_files/dup/
+        {params.conda_init}
+        conda activate {params.conda_env}
+        export PATH={params.bcftools_bin}:$PATH
+        bcftools view \
+          -i 'FILTER=="PASS" && INFO/SVTYPE=="DUP" && abs(INFO/SVLEN)>=50' \
+          {input.vcf} \
+          | awk '
+            /^##contig=<ID=/ {{
+              if ($0 ~ /^##contig=<ID=([0-9]+|X|Y),/) print
+              next
+            }}
+            /^#/ {{ print; next }}
+            $1 ~ /^([0-9]+|X|Y)$/ {{ print }}
+          ' \
+          > {output.vcf}
+        """
+
+rule vcf_to_bed_dysgu:
+    input:
+        vcf = "Dysgu/Filtered_vcf_files/{svtype}/{sample}.genome.dysgu.{svtype}.filtered.{date}.vcf"
+    output:
+        bed = "Dysgu/Bed_files/{svtype}/{sample}.genome.dysgu.{svtype}.filtered.{date}.bed"
+    params:
+        conda_init   = parameters.conda_init,
+        conda_env    = parameters.conda_env,
+        bcftools_bin = parameters.bcftools_bin
+    resources:
+        nb_cores = 1,
+        mem_mb   = 4000,
+    shell:
+        """
+        mkdir -p Dysgu/Bed_files/{wildcards.svtype}
+
+        {params.conda_init}
+        conda activate {params.conda_env}
+
+        export PATH={params.bcftools_bin}:$PATH
+
+        bcftools query -f '%CHROM\t%POS\t%INFO/END\n' {input.vcf} > {output.bed}
+        """
+
+
+
+rule all_dysgu:
+    input:
+        expand(
+            "Dysgu/Unfiltered_vcf_files/{sample}.genome.dysgu.{date}.vcf",
+            sample = list(config["samples"].keys()),
+            date   = parameters.date,
+        ),
+        expand(
+            "Dysgu/Filtered_vcf_files/{svtype}/{sample}.genome.dysgu.{svtype}.filtered.{date}.vcf",
+            sample = list(config["samples"].keys()),
+            svtype = ["del-max10kb", "del-gt10kb", "dup"],
+            date   = parameters.date,
+        ),
+        expand(
+            "Dysgu/Bed_files/{svtype}/{sample}.genome.dysgu.{svtype}.filtered.{date}.bed",
+            sample = list(config["samples"].keys()),
+            svtype = ["del-max10kb", "del-gt10kb", "dup"],
+            date   = parameters.date,
+        )
+    output:
+        touch("all_dysgu.done")

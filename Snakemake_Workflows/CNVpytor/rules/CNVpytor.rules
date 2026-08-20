@@ -1,0 +1,195 @@
+wildcard_constraints:
+    sample="[^/]+",
+    svtype = "[a-z0-9-]+",
+    date="[0-9]+"
+
+rule cnvpytor_root:
+    input:
+        bam = os.path.join(config["bamdir"], "{sample}.genome.bam"),
+        bai = os.path.join(config["bamdir"], "{sample}.genome.bam.bai")
+    output:
+        pytor = "CNVpytor/{sample}.pytor"
+    params:
+        reference_genome = parameters.reference_genome,
+        conda_profile = parameters.conda_profile,
+        cnvpytor_env = parameters.cnvpytor_env
+    resources:
+        nb_cores = 4,
+        mem_mb   = 16000,
+    shell:
+        """
+        {params.conda_profile}
+        conda activate {params.cnvpytor_env}
+        mkdir -p CNVpytor
+        cnvpytor -root {output.pytor} -rd {input.bam} -T {params.reference_genome}
+        """
+
+rule cnvpytor_histogram:
+    input:
+        pytor = "CNVpytor/{sample}.pytor"
+    output:
+        his_flag = temp("CNVpytor/{sample}.his.flag")
+    params:
+        bin_size = parameters.bin_size,
+        conda_profile = parameters.conda_profile,
+        cnvpytor_env = parameters.cnvpytor_env
+    resources:
+        nb_cores = 4,
+        mem_mb   = 16000,
+    shell:
+        """
+        {params.conda_profile}
+        conda activate {params.cnvpytor_env}
+        cnvpytor -root {input.pytor} -his {params.bin_size}
+        touch {output.his_flag}
+        """
+
+rule cnvpytor_partition:
+    input:
+        pytor = "CNVpytor/{sample}.pytor",
+        his_flag = "CNVpytor/{sample}.his.flag"
+    output:
+        partition_flag = temp("CNVpytor/{sample}.partition.flag")
+    params:
+        bin_size = parameters.bin_size,
+        conda_profile = parameters.conda_profile,
+        cnvpytor_env = parameters.cnvpytor_env
+    resources:
+        nb_cores = 4, 
+        mem_mb   = 16000,
+    shell:
+        """
+        {params.conda_profile}
+        conda activate {params.cnvpytor_env}
+        cnvpytor -root {input.pytor} -partition {params.bin_size}
+        touch {output.partition_flag}
+        """
+
+rule cnvpytor_call:
+    input:
+        pytor = "CNVpytor/{sample}.pytor",
+        partition_flag = "CNVpytor/{sample}.partition.flag"
+    output:
+        call_file = "CNVpytor/CNVpytor_calls/{sample}.genome.cnvpytor.{date}.txt"
+    params:
+        bin_size = parameters.bin_size,
+        conda_profile = parameters.conda_profile,
+        cnvpytor_env = parameters.cnvpytor_env
+    resources:
+        nb_cores = 4, 
+        mem_mb   = 16000,
+    shell:
+        """
+        {params.conda_profile}
+        conda activate {params.cnvpytor_env}
+        mkdir -p CNVpytor/CNVpytor_calls
+        cnvpytor -root {input.pytor} -call {params.bin_size} > {output.call_file}
+        """
+
+
+rule cnvpytor_vcf:
+    input:
+        pytor = "CNVpytor/{sample}.pytor",
+        call_file = "CNVpytor/CNVpytor_calls/{sample}.genome.cnvpytor.{date}.txt"
+    output:
+        vcf = "CNVpytor/Unfiltered_vcf_files/{sample}.genome.cnvpytor.{date}.vcf"
+    params:
+        bin_size = parameters.bin_size,
+        conda_profile = parameters.conda_profile,
+        cnvpytor_env = parameters.cnvpytor_env
+    resources:
+        nb_cores = 2,
+        mem_mb   = 8000,
+    shell:
+        """
+        {params.conda_profile}
+        conda activate {params.cnvpytor_env}
+        mkdir -p CNVpytor/Unfiltered_vcf_files
+        echo -e "set print_filename {output.vcf}\nprint calls\n" | \
+          cnvpytor -root {input.pytor} -view {params.bin_size}
+        """
+
+rule cnvpytor_filter_del_gt10kb:
+    input:
+        vcf = "CNVpytor/Unfiltered_vcf_files/{sample}.genome.cnvpytor.{date}.vcf"
+    output:
+        vcf_filtered = "CNVpytor/Filtered_vcf_files/del-gt10kb/{sample}.genome.cnvpytor.del-gt10kb.filtered.{date}.vcf"
+    params:
+        bcftools_bin = parameters.bcftools_bin
+    resources:
+        nb_cores = 1,
+        mem_mb   = 4000,
+    shell:
+        """
+        mkdir -p CNVpytor/Filtered_vcf_files/del-gt10kb/
+        export PATH={params.bcftools_bin}:$PATH
+
+        bcftools view \
+          -i 'FILTER="PASS" && INFO/SVTYPE=="DEL" && abs(INFO/SVLEN) > 10000' \
+          -O v \
+          -o {output.vcf_filtered} \
+          {input.vcf}
+        """
+
+rule cnvpytor_filter_dup:
+    input:
+        vcf = "CNVpytor/Unfiltered_vcf_files/{sample}.genome.cnvpytor.{date}.vcf"
+    output:
+        vcf_filtered = "CNVpytor/Filtered_vcf_files/dup/{sample}.genome.cnvpytor.dup.filtered.{date}.vcf"
+    params:
+        bcftools_bin = parameters.bcftools_bin
+    resources:
+        nb_cores = 1,
+        mem_mb   = 4000,
+    shell:
+        """
+        mkdir -p CNVpytor/Filtered_vcf_files/dup/
+        export PATH={params.bcftools_bin}:$PATH
+
+        bcftools view \
+          -i 'FILTER="PASS" && INFO/SVTYPE=="DUP" && abs(INFO/SVLEN) >= 50' \
+          -O v \
+          -o {output.vcf_filtered} \
+          {input.vcf}
+        """
+
+rule cnvpytor_vcf_to_bed:
+    input:
+        vcf = "CNVpytor/Filtered_vcf_files/{svtype}/{sample}.genome.cnvpytor.{svtype}.filtered.{date}.vcf"
+    output:
+        bed = "CNVpytor/Bed_files/{svtype}/{sample}.genome.cnvpytor.{svtype}.filtered.{date}.bed"
+    params:
+        bcftools_bin = parameters.bcftools_bin
+    resources:
+        nb_cores = 1,
+        mem_mb   = 4000,
+    shell:
+        """
+        mkdir -p CNVpytor/Bed_files/{wildcards.svtype}
+
+        export PATH={params.bcftools_bin}:$PATH
+
+        bcftools query -f '%CHROM\t%POS\t%INFO/END\n' {input.vcf} > {output.bed}
+        """
+
+rule all_cnvpytor:
+    input:
+        expand(
+            "CNVpytor/Unfiltered_vcf_files/{sample}.genome.cnvpytor.{date}.vcf",
+            sample = list(config["samples"].keys()),
+            date   = [parameters.date]
+        ),
+        expand(
+            "CNVpytor/Filtered_vcf_files/{svtype}/{sample}.genome.cnvpytor.{svtype}.filtered.{date}.vcf",
+            sample = list(config["samples"].keys()),
+            svtype = ["del-gt10kb", "dup"],
+            date   = [parameters.date]
+        ),        
+        expand(
+            "CNVpytor/Bed_files/{svtype}/{sample}.genome.cnvpytor.{svtype}.filtered.{date}.bed",
+            sample = list(config["samples"].keys()),
+            svtype = ["del-gt10kb", "dup"],
+            date   = [parameters.date]
+        )
+    output:
+        touch("all_cnvpytor.done")

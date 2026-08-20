@@ -1,0 +1,93 @@
+# config_SVdetection.yaml (anonymized example)
+
+#######################################################################
+# Global paths / versions
+#######################################################################
+
+working_folder: "/path/to/SV_Detection_and_Filtering"
+
+create_svf_database_script: "/path/to/SV_Detection_and_Filtering/Create_SVF_database.pl"
+
+#######################################################################
+# Samples
+#######################################################################
+
+samples:
+  # Example samples (replace with your IDs)
+  - SAMPLE_01
+  - SAMPLE_02
+
+#######################################################################
+# Tools / pipelines
+#######################################################################
+
+tools:
+  - cnvpytor-del-gt10kb
+  - cnvpytor-dup
+  - delly-del-gt10kb
+  - delly-dup
+  - delly-inv
+  - dysgu-del-gt10kb
+  - dysgu-del-max10kb
+  - dysgu-dup
+  - manta-del-max10kb
+
+#######################################################################
+# Parameter files
+#######################################################################
+
+parameters_files:
+  cnvpytor-del-gt10kb: "/path/to/parameters_files/parameters_cnvpytor_del_gt10kb.txt"
+  cnvpytor-dup:        "/path/to/parameters_files/parameters_cnvpytor_dup.txt"
+  delly-del-gt10kb:    "/path/to/parameters_files/parameters_delly_del_gt10kb.txt"
+  delly-dup:           "/path/to/parameters_files/parameters_delly_dup.txt"
+  delly-inv:           "/path/to/parameters_files/parameters_delly_inv.txt"
+  dysgu-del-gt10kb:    "/path/to/parameters_files/parameters_dysgu_del_gt10kb.txt"
+  dysgu-del-max10kb:   "/path/to/parameters_files/parameters_dysgu_del_max10kb.txt"
+  dysgu-dup:           "/path/to/parameters_files/parameters_dysgu_dup.txt"
+  manta-del-max10kb:   "/path/to/parameters_files/parameters_manta_del_max10kb.txt"
+
+#######################################################################
+# DataFormater scripts
+#######################################################################
+
+dataformater_scripts:
+  cnvpytor-del-gt10kb: "/path/to/DataFormater_scripts/DataFormater_cnvpytor_del_gt10kb.py"
+  cnvpytor-dup:        "/path/to/DataFormater_scripts/DataFormater_cnvpytor_dup.py"
+  delly-del-gt10kb:    "/path/to/DataFormater_scripts/DataFormater_delly_del_gt10kb.py"
+  delly-dup:           "/path/to/DataFormater_scripts/DataFormater_delly_dup.py"
+  delly-inv:           "/path/to/DataFormater_scripts/DataFormater_delly_inv.py"
+  dysgu-del-gt10kb:    "/path/to/DataFormater_scripts/DataFormater_dysgu_del_gt10kb.py"
+  dysgu-del-max10kb:   "/path/to/DataFormater_scripts/DataFormater_dysgu_del_max10kb.py"
+  dysgu-dup:           "/path/to/DataFormater_scripts/DataFormater_dysgu_dup.py"
+  manta-del-max10kb:   "/path/to/DataFormater_scripts/DataFormater_manta_del_max10kb.py"
+
+#######################################################################
+# Working directories
+#######################################################################
+
+dataformater_workdirs:
+  cnvpytor-del-gt10kb: "/path/to/SV_Detection_and_Filtering/cnvpytor-del-gt10kb"
+  cnvpytor-dup:        "/path/to/SV_Detection_and_Filtering/cnvpytor-dup"
+  delly-del-gt10kb:    "/path/to/SV_Detection_and_Filtering/delly-del-gt10kb"
+  delly-dup:           "/path/to/SV_Detection_and_Filtering/delly-dup"
+  delly-inv:           "/path/to/SV_Detection_and_Filtering/delly-inv"
+  dysgu-del-gt10kb:    "/path/to/SV_Detection_and_Filtering/dysgu-del-gt10kb"
+  dysgu-del-max10kb:   "/path/to/SV_Detection_and_Filtering/dysgu-del-max10kb"
+  dysgu-dup:           "/path/to/SV_Detection_and_Filtering/dysgu-dup"
+  manta-del-max10kb:   "/path/to/SV_Detection_and_Filtering/manta-del-max10kb"
+
+#######################################################################
+# Output svtype labels used in aggregated BED filenames
+#######################################################################
+
+svtype_by_tool:
+  cnvpytor-del-gt10kb: "cnvpytor.del_gt10kb"
+  cnvpytor-dup:        "cnvpytor.dup"
+  delly-del-gt10kb:    "delly.del-gt10kb"
+  delly-dup:           "delly.dup"
+  delly-inv:           "delly.inv"
+  dysgu-del-gt10kb:    "dysgu.del-gt10kb"
+  dysgu-del-max10kb:   "dysgu.del-max10kb"
+  dysgu-dup:           "dysgu.dup"
+  manta-del-max10kb:   "manta.del-max10kb"

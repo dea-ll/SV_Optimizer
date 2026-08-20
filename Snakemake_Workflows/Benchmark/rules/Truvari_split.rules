@@ -1,0 +1,87 @@
+"""
+Truvari Benchmarking Rules - SPLIT mode
+
+Phase SPLIT: Benchmark against size/SVTYPE-split truthsets
+(DEL_50to10kb, DEL_gt10kb, DUP_all) using filtered caller VCFs.
+"""
+
+import parameters_Truvari as parameters
+
+TRUVARI_CONFIGS = config["active_configs"]
+TOOLS = list(config["tools"].keys())
+
+SPLIT_SETS = ["DEL_50to10kb", "DEL_gt10kb", "DUP_all"]
+
+# Un seul sample : HG002, dont la clé VCF dans le config est "vcf_hg002"
+SAMPLE_NAME = "HG002"
+SAMPLE_VCF_KEY = "vcf_hg002"   # doit exister dans config_Truvari_Split.yaml
+
+
+################################################################################
+# SPLIT BENCHMARK: truthsets_split + VCF filtrés
+################################################################################
+
+rule truvari_bench_split:
+    """
+    Benchmark tools against split truthsets (DEL_50to10kb, DEL_gt10kb, DUP_all)
+    using filtered caller VCFs defined in config_Truvari_Split.yaml.
+    """
+    input:
+        truth_vcf = lambda wc: config["truthsets_split"][wc.set]["vcf"],
+        truth_tbi = lambda wc: config["truthsets_split"][wc.set]["vcf"] + ".tbi",
+        truth_bed = lambda wc: config["truthsets"]["FILTERED"]["bed"],
+        calls_vcf = lambda wc: (
+            config["tools"][wc.tool][f"{SAMPLE_VCF_KEY}_{wc.set}"]
+        ),
+        calls_tbi = lambda wc: (
+            config["tools"][wc.tool][f"{SAMPLE_VCF_KEY}_{wc.set}"] + ".tbi"
+        )
+    output:
+        summary = parameters.results_dir_splited + "/{set}/{tool}/config_{truvari_config}/summary.json"
+    params:
+        reference  = parameters.reference_genome,
+        refdist    = lambda wc: config["tools"][wc.tool]["refdist"],
+        chunksize  = lambda wc: config["tools"][wc.tool]["chunksize"],
+        pctseq     = lambda wc: config["truvari_configs"][wc.truvari_config]["pctseq"],
+        pctsize    = lambda wc: config["truvari_configs"][wc.truvari_config]["pctsize"],
+        pctovl     = lambda wc: config["truvari_configs"][wc.truvari_config]["pctovl"],
+        conda_init = parameters.conda_init,
+        conda_env  = parameters.conda_env,
+        outdir     = lambda wc: (
+            parameters.results_dir_splited + f"/{wc.set}/{wc.tool}/config_{wc.truvari_config}"
+        )
+    resources:
+        nb_cores = 4
+    shell:
+        """
+        {params.conda_init};
+        conda activate {params.conda_env};
+        mkdir -p $(dirname {params.outdir});
+        rm -rf {params.outdir};
+        truvari bench -b {input.truth_vcf} -c {input.calls_vcf} -f {params.reference} \
+            -o {params.outdir} --dup-to-ins --passonly --includebed {input.truth_bed} \
+            --chunksize {params.chunksize} --refdist {params.refdist} \
+            --pctseq {params.pctseq} --pctsize {params.pctsize} \
+            --pctovl {params.pctovl} \
+            -p 0
+        """
+
+
+################################################################################
+# Master rule SPLIT
+################################################################################
+
+rule all_truvari_split:
+    """
+    Execute Truvari benchmarking for all split sets
+    (DEL_50to10kb, DEL_gt10kb, DUP_all) using filtered VCFs.
+    """
+    input:
+        expand(
+            parameters.results_dir_splited + "/{set}/{tool}/config_{cfg}/summary.json",
+            set  = SPLIT_SETS,
+            tool = TOOLS,
+            cfg  = TRUVARI_CONFIGS,
+        )
+    output:
+        touch("all_truvari_split.done")

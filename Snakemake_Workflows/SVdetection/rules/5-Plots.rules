@@ -1,0 +1,58 @@
+wildcard_constraints:
+    sample   = "[^/]+",
+    tool     = "[a-zA-Z0-9_.-]+",
+
+rule sv_plots:
+    """
+    Generate GeGraphs coverage plots for SVs present in SeenSamplesSMG == 1
+    for each sample / tool combination.
+    """
+    input:
+        # on part du fichier XLSX filtré déjà existant
+        annotsv_xlsx = lambda wildcards: 
+            f"VS_results/{wildcards.sample}/results/{wildcards.sample}.{wildcards.tool}.anno3.3.4.both.*_both_filtered.xlsx"
+    output:
+        done = temp("done_files/{sample}.{tool}.plots.done")
+    params:
+        conda_init = parameters.conda_init,
+        conda_env  = parameters.conda_env,
+        plots_root = "/scratch/DMGL/SMG-Master/SV_Detection_and_Filtering/GeGraphs_Plots",
+        gegraphs_script = "/scratch/DMGL/SMG-Master/SV_Detection_and_Filtering/GeGraphs_Plots/GeGraphs_SVplots.R",
+    shell:
+        """
+        # Cherche le XLSX filtré correspondant
+        xlsx=$(ls {input.annotsv_xlsx} | head -n 1)
+
+        if [ -z "$xlsx" ]; then
+          echo "No filtered AnnotSV XLSX found for {wildcards.sample} {wildcards.tool}" >&2
+          exit 1
+        fi
+
+        outdir="{params.plots_root}/{wildcards.sample}/{wildcards.tool}"
+        mkdir -p "$outdir"
+
+        source {params.conda_init}
+        conda activate {params.conda_env}
+
+        Rscript {params.gegraphs_script} \
+          --sample       {wildcards.sample} \
+          --tool         {wildcards.tool} \
+          --annotsv_xlsx "$xlsx" \
+          --outdir       "$outdir"
+
+        touch {output.done}
+        """
+
+rule all_svdetection:
+    input:
+        expand(
+            "done_files/{sample}.{tool}.plots.done",
+            sample   = config["samples"],
+            tool     = config["tools"],
+        )
+    output:
+        touch("all_svdetection.done")
+    shell:
+        """
+        rm -r done_files/
+        """
