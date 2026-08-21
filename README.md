@@ -61,6 +61,11 @@ The repository contains the Snakemake workflows used for the final SV analysis, 
 │   ├── SVDetection/
 │   └── Benchmark/
 │
+├── envs/
+│   ├── Env_Stage.yml
+│   ├── cnvpytor_env.yml
+│   └── dysgu_env.yml
+│
 ├── docs/
 │   ├── manual_runs/
 │   │   ├── Manta_manual_run.md
@@ -82,6 +87,8 @@ The repository contains the Snakemake workflows used for the final SV analysis, 
 ```
 
 The `manual_runs/` files preserve the main command-line steps used during development in an anonymised form, while `snakemake_launch/` provides simple examples showing how the corresponding workflows were launched.
+
+The `envs/` folder contains exported Conda environment definitions for the main software environments used during the project. These files are included to improve reproducibility without distributing the environments themselves.
 
 The `Scripts/` folder contains selected anonymised scripts used to generate figures or descriptive summaries for the thesis report and oral presentation. These scripts are included to document how some of the results were produced and do not contain patient-level data.
 
@@ -191,6 +198,33 @@ These scripts are included as supporting material and are intended to make the a
 
 ---
 
+## Conda environments
+
+To improve reproducibility, the repository includes the Conda environment definitions used for the main analysis steps:
+
+```text
+envs/
+├── Env_Stage.yml
+├── cnvpytor_env.yml
+└── dysgu_env.yml
+```
+
+- `Env_Stage.yml` corresponds to the main project environment used for several workflow and analysis steps.
+- `cnvpytor_env.yml` contains the environment used for CNVpytor.
+- `dysgu_env.yml` contains the environment used for Dysgu.
+
+The files were exported from the environments used during the project with Conda using `--no-builds`. Machine-specific `prefix:` entries were removed before inclusion in the public repository.
+
+An environment can be recreated, for example, with:
+
+```bash
+conda env create -f envs/dysgu_env.yml
+```
+
+The exact software environment required by a workflow should be checked against its configuration and parameter files. Some internal HUG dependencies used by the downstream `SVDetection` workflow are not distributed in this repository.
+
+---
+
 ## Running the workflows
 
 A typical Snakemake dry-run follows this structure:
@@ -214,7 +248,7 @@ More specific examples for each workflow are available in:
 docs/snakemake_launch/
 ```
 
-Resource allocation, paths and cluster profiles must be adapted to the local computing environment.
+Resource allocation, paths and cluster profiles must be adapted to the local computing environment. The Conda environment definitions provided in `envs/` can be used to recreate the main software environments associated with the workflows.
 
 ---
 
